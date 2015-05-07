@@ -9,9 +9,10 @@ import os
 import random
 import re
 
-APP_NAME = "<app_name>"
-REPO_URL = 'https://github.com/<user>/<app_name>.git'
+APP_NAME = '<app_name>'
+REPO_URL = ''
 re_staging = re.compile(r"staging")
+
 
 ### ***** BRING Deployment *****
 def deploy():
@@ -50,19 +51,12 @@ def _update_settings(source_dir, env_host):
     if not re_staging.search(env_host):
         sed(settings_path, "DEBUG = True", "DEBUG = False")
 
-    ##format the database name
-    host_raw = env_host.split(".")[0]
-    host = host_raw.replace("-", "_")
-    sed(settings_path, 'DATABASE_NAME = APP_NAME', 'DATABASE_NAME = "{}"'.format(host))
     sed(settings_path,
         'ALLOWED_HOSTS =.+$',
-        'ALLOWED_HOSTS = ["%s"]' % (env_host,)
-    )
+        'ALLOWED_HOSTS = ["%s"]' % (env_host,))
     secret_key_file = source_dir + '/config/secret_key.py'
     chars = 'abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)'
     key = ''.join(random.SystemRandom().choice(chars) for _ in range(50))
-    # if not exists(secret_key_file):
-    #     append(secret_key_file, "SECRET_KEY = '%s'" % (key,))
     if not exists(secret_key_file):
         run("echo SECRET_KEY = '\"%s\"' >> %s" % (key, secret_key_file))
     else:
@@ -102,9 +96,10 @@ def _update_static_files(static_dir, source_dir):
     run('cd %s && ../virtualenv/bin/python3.4 manage.py collectstatic '
         '--clear --noinput -i node_modules -i less -i src -i *.json -i .bowerrc' % (source_dir, ))
 
+
 def _update_database(source_dir):
-    #Inject db name and password???
     run('cd %s && ../virtualenv/bin/python3.4 manage.py migrate --noinput' % (source_dir,))
+
 
 def _restart_supervisor(env_host):
     run('supervisorctl restart %s' % (env_host,))
@@ -119,45 +114,36 @@ def lgittag():
 
 ### ***** END Deployment *****
 
-### ***** Django *****
-lsource_dir = os.path.abspath(os.path.dirname(__file__))
-lfixtures_dir = os.path.abspath(os.path.join(lsource_dir, "shellac/fixtures"))
-ljs_dir = os.path.abspath(os.path.join(lsource_dir, "%s/static/%s/js" % (APP_NAME, APP_NAME)))
-lmediadebug_dir = os.path.abspath(os.path.join(lsource_dir, "../debug/media/"))
-lmedia_dir = os.path.abspath(os.path.join(lsource_dir, "../media/"))
+### ***** Local *****
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FIXTURES_DIR = os.path.abspath(os.path.join(BASE_DIR, "{{ app_name }}/fixtures"))
 
 
 def start():
     local('../virtualenv/bin/python3.4 manage.py runserver 127.0.0.1:8000')
 
+
 def celery():
     local('../virtualenv/bin/celery --app=config.celery:app worker --loglevel=INFO --purge')
 
-def watch():
-    local('cd %s && grunt watch' % (ljs_dir,))
 
 def test():
     local('../virtualenv/bin/python3.4 manage.py test %s.tests.unit' % (APP_NAME,))
     local('../virtualenv/bin/python3.4 manage.py test %s.tests.functional' % (APP_NAME,))
 
+
 def unit():
     local('../virtualenv/bin/python3.4 manage.py test %s.tests.unit' % (APP_NAME,))
+
 
 def functional():
     local('../virtualenv/bin/python3.4 manage.py test %s.tests.functional' % (APP_NAME,))
 
+
 def make_test_fixture():
-    local('../virtualenv/bin/python3.4 manage.py dumpdata shellac --exclude=shellac.Person --format=json --indent=4 > %s/shellac.json' % (lfixtures_dir,))
-    local('../virtualenv/bin/python3.4 manage.py dumpdata auth --natural --format=json --indent=4 > %s/auth.json' % (lfixtures_dir,))
-    local('../virtualenv/bin/python3.4 manage.py dumpdata taggit --format=json --indent=4 > %s/taggit.json' % (lfixtures_dir,))
+    local('../virtualenv/bin/python3.4 manage.py dumpdata auth'
+          ' --natural --format=json --indent=4 > %s/auth.json' % (FIXTURES_DIR,))
+
 
 def load_test_fixture():
-    local('../virtualenv/bin/python3.4 manage.py loaddata %s/auth.json' % (lfixtures_dir,))
-    local('../virtualenv/bin/python3.4 manage.py loaddata %s/shellac.json' % (lfixtures_dir,))
-    local('../virtualenv/bin/python3.4 manage.py loaddata %s/taggit.json' % (lfixtures_dir,))
-
-def sync_aws_dev():
-    local(' s3cmd sync --delete-removed --skip-existing %s/* s3://%s/debug/media/' % (lmediadebug_dir, APP_NAME + '-media'))
-
-def sync_aws_prod():
-    local(' s3cmd sync --delete-removed --skip-existing %s/* s3://%s/media/' % (lmedia_dir, APP_NAME + '-media'))
+    local('../virtualenv/bin/python3.4 manage.py loaddata %s/auth.json' % (FIXTURES_DIR,))

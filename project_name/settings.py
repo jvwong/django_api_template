@@ -11,11 +11,9 @@ https://docs.djangoproject.com/en/{{ docs_version }}/ref/settings/
 import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-APP_NAME = '{{ project_name }}'
 DEBUG = os.environ.get('DEBUG', 'on') == 'on'
 SECRET_KEY = "tempsecret"
 ALLOWED_HOSTS = ['127.0.0.1']
-DATABASE_NAME = APP_NAME
 
 # Application definition
 INSTALLED_APPS = (
@@ -23,8 +21,7 @@ INSTALLED_APPS = (
     'django.contrib.contenttypes',
     'django.contrib.staticfiles',
     'rest_framework',
-    'rest_framework.authtoken',
-    'board',
+    'rest_framework.authtoken'
 )
 
 MIDDLEWARE_CLASSES = (
